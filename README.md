@@ -22,3 +22,7 @@ Things you may want to cover:
 * Deployment instructions
 
 * ...
+
+# 追記分
+以下の記事を参考に作ってみる  
+https://zenn.dev/batacon/articles/e9b4a88ede2889
