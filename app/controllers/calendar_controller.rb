@@ -1,4 +1,5 @@
 require "google/apis/calendar_v3"
+require 'google/api_client/client_secrets.rb'
 require "googleauth"
 require "googleauth/stores/file_token_store"
 require "date"
@@ -16,35 +17,39 @@ class CalendarController < ApplicationController
   MY_CALENDAR_ID = 'primary'
 
   def index
-    authorize
-  end
-
-  def authorize
-    client_id = Google::Auth::ClientId.from_file CLIENT_SECRET_PATH
-    logger.debug(client_id.id)
-    token_store = Google::Auth::Stores::FileTokenStore.new file: TOKEN_PATH
-    authorizer = Google::Auth::UserAuthorizer.new client_id, SCOPE, token_store
-    user_id = "atrastar72@gmail.com"
-    credentials = authorizer.get_credentials user_id
-    if credentials.nil?
-      code = session[:code]
-      url = authorizer.get_authorization_url(base_url: REDIRECT_URI)
-      logger.debug(url)
-      credentials = authorizer.get_and_store_credentials_from_code(
-        user_id: user_id, code: code, base_url: REDIRECT_URI
-      )
+    unless session.has_key?(:credentials)
+      puts(session[:credentials])
+      redirect_to action: :callback
+      return
     end
-    credentials
+
+    client_opts = JSON.parse(session[:credentials])
+    auth_client = Signet::OAuth2::Client.new(client_opts)
+    calendar = Google::Apis::CalendarV3::CalendarService.new
+    calendar_id = MY_CALENDAR_ID
+    response = calendar.list_events(calendar_id, options: {
+      authorization: auth_client
+    })
+    puts response.items
   end
 
   def callback
-    session[:code] = params[:code]
-    logger.debug(session[:code])
-    calendar = Google::Apis::CalendarV3::CalendarService.new
-    calendar.client_options.application_name = APPLICATION_NAME
-    calendar.authorization = authorize
-    fetchEvents(calendar)
-    redirect_to action: :index
+    client_secrets = Google::APIClient::ClientSecrets.load('./client_secret.json')
+    auth_client = client_secrets.to_authorization
+    auth_client.update!(
+      :scope => 'https://www.googleapis.com/auth/calendar',
+      :redirect_uri => 'http://localhost:3000/oauth2callback'
+    )
+    if request['code'] == nil
+      auth_uri = auth_client.authorization_uri.to_s
+      redirect_to auth_uri
+    else
+      auth_client.code = request['code']
+      auth_client.fetch_access_token!
+      auth_client.client_secret = nil
+      session[:credentials] = auth_client.to_json
+      redirect_to action: :index
+    end
   end
 
   def fetchEvents(service)
