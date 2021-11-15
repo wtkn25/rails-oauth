@@ -35,6 +35,9 @@ gem 'omniauth-google-oauth2'
 
 gem 'omniauth-rails_csrf_protection'
 
+# Google API
+gem 'google-api-client', require: 'google/apis'
+
 
 group :development, :test do
   # Call 'byebug' anywhere in the code to stop execution and get a debugger console
